@@ -47,12 +47,16 @@ public class AuthenticationService {
 		var savedUser = repository.save(user);
 		
 	    var jwtToken = jwtService.generateToken(user);
+	   
 	    saveUserToken(savedUser, jwtToken);
 		
 	    return AuthenticationResponse.builder()
 	            .token(jwtToken)
 	            .build();
 	}
+	
+	
+	
 
 	
 
@@ -69,6 +73,7 @@ public class AuthenticationService {
 			        .orElseThrow();
 			    
 			    var jwtToken = jwtService.generateToken(user);
+			    revokeAllUserTokens(user);
 			    saveUserToken(user, jwtToken);
 			    return AuthenticationResponse.builder()
 			        .token(jwtToken)
@@ -89,6 +94,22 @@ public class AuthenticationService {
 	    		.build();
 	    
 	    tokenRepo.save(token);
+	}
+	
+	private void revokeAllUserTokens(User user) {
+		var validUserToken = tokenRepo.findAllValidTokensByUser(user.getId());
+	
+	if(validUserToken.isEmpty()) {
+		return;
+	}
+	
+	validUserToken.forEach(t -> {
+	t.setExpired(true);
+	t.setRevoked(true);
+	
+	});
+	
+	tokenRepo.saveAll(validUserToken);
 	}
 
 }

@@ -2,6 +2,7 @@ package com.edgar.security.config;
 
 import java.io.IOException;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -9,6 +10,8 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
+
+import com.edgar.security.repository.TokenRepository;
 
 import io.micrometer.common.lang.NonNull;
 import jakarta.servlet.FilterChain;
@@ -22,6 +25,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 	private final JwtService jwtService;
 	
 	private final UserDetailsService userDetailsService;
+	
+	
+	@Autowired
+	private TokenRepository tokenRepo;
 	
 	
 
@@ -64,7 +71,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 		if(userEmail !=null && SecurityContextHolder.getContext().getAuthentication()==null) {
 			UserDetails userDetails = this.userDetailsService.loadUserByUsername(userEmail);
 			
-			if(jwtService.isTokenValid(jwt, userDetails)) {
+			var isTokenValid = tokenRepo.findByToken(jwt)
+			          .map(t -> !t.isExpired() && !t.isRevoked())
+			          .orElse(false);
+			      if (jwtService.isTokenValid(jwt, userDetails) && isTokenValid) {
 				UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
 				authToken.setDetails(
 						new WebAuthenticationDetailsSource()
