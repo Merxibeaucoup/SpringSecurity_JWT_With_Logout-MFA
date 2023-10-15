@@ -1,27 +1,23 @@
 package com.edgar.security.auth;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+import lombok.AllArgsConstructor;
 import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Builder
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
 public class AuthenticationResponse {
 
-	private String token;
+	@JsonProperty("access_token")
+	private String accessToken;
+	
+	@JsonProperty("refresh_token")
+	private String refreshToken;
 
-	public AuthenticationResponse() {
-
-	}
-
-	public AuthenticationResponse(String token) {
-		super();
-		this.token = token;
-	}
-
-	public String getToken() {
-		return token;
-	}
-
-	public void setToken(String token) {
-		this.token = token;
-	}
-
+	
 }
