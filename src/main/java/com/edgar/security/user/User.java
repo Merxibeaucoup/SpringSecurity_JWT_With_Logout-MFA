@@ -17,14 +17,18 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Entity
 @Builder
-@Table(name ="app_user")
+@Table(name = "app_user")
+@AllArgsConstructor
+@NoArgsConstructor
+@Data
 public class User implements UserDetails {
-
-	
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -38,103 +42,17 @@ public class User implements UserDetails {
 
 	private String password;
 
+	private boolean mfaEnabled;
+	
+	private String secret;
+
 	@Enumerated(EnumType.STRING)
 	private Role role;
-	
+
 	@OneToMany(mappedBy = "user")
 	private List<Token> tokens;
 
-	public User() {
-
-	}
-	
-	
-	public User(Long id, String firstname, String lastname, String email, String password, Role role,
-			List<Token> tokens) {
-		super();
-		this.id = id;
-		this.firstname = firstname;
-		this.lastname = lastname;
-		this.email = email;
-		this.password = password;
-		this.role = role;
-		this.tokens = tokens;
-	}
-	
-	
-	
-	
-
-	
-
-
-	public Long getId() {
-		return id;
-	}
-
-	public void setId(Long id) {
-		this.id = id;
-	}
-
-	public String getFirstname() {
-		return firstname;
-	}
-
-	public void setFirstname(String firstname) {
-		this.firstname = firstname;
-	}
-
-	public String getLastname() {
-		return lastname;
-	}
-
-	public void setLastname(String lastname) {
-		this.lastname = lastname;
-	}
-
-	public String getEmail() {
-		return email;
-	}
-
-	public void setEmail(String email) {
-		this.email = email;
-	}
-
-	@Override
-	public String getPassword() {
-		return password;
-	}
-
-	public void setPassword(String password) {
-		this.password = password;
-	}
-	
-	public Role getRole() {
-		return role;
-	}
-
-
-	public void setRole(Role role) {
-		this.role = role;
-	}
-
-
-	public List<Token> getTokens() {
-		return tokens;
-	}
-
-
-	public void setTokens(List<Token> tokens) {
-		this.tokens = tokens;
-	}
-	
-	
-	
-	
-
 	/* user details methods to override */
-
-	
 
 	@Override
 	public Collection<? extends GrantedAuthority> getAuthorities() {
@@ -145,8 +63,8 @@ public class User implements UserDetails {
 	public String getUsername() {
 		return email;
 	}
-	
-	/* Set Everything to true  else we can't access it */
+
+	/* Set Everything to true else we can't access it */
 
 	@Override
 	public boolean isAccountNonExpired() {
@@ -167,9 +85,5 @@ public class User implements UserDetails {
 	public boolean isEnabled() {
 		return true;
 	}
-
-
-	
-
 
 }

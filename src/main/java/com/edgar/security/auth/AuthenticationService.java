@@ -5,6 +5,7 @@ import java.io.IOException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -16,10 +17,13 @@ import com.edgar.security.token.Token;
 import com.edgar.security.token.TokenType;
 import com.edgar.security.user.Role;
 import com.edgar.security.user.User;
+import com.edgar.tfa.TwoFactorAuthService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import jakarta.persistence.EntityNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
 
 @Service
 public class AuthenticationService {
@@ -38,12 +42,24 @@ public class AuthenticationService {
 
 	@Autowired
 	private AuthenticationManager authenticationManager;
+	
+	@Autowired
+	private TwoFactorAuthService twoFactorAuthService;
 
 	public AuthenticationResponse register(RegisterRequest request) {
 
 		var user = User.builder().firstname(request.getFirstname()).lastname(request.getLastname())
 				.email(request.getEmail()).password(passwordEncoder.encode(request.getPassword())).role(Role.USER)
+				.mfaEnabled(request.isMfaEnabled())
 				.build();
+		
+		
+//		if mfa enabled ? generate token
+		
+		if(request.isMfaEnabled()) {
+			user.setSecret(twoFactorAuthService.generateNewSecret());		
+			
+		}
 
 		var savedUser = repository.save(user);
 
@@ -53,8 +69,13 @@ public class AuthenticationService {
 
 		saveUserToken(savedUser, jwtToken);
 
-		return AuthenticationResponse.builder().accessToken(jwtToken).refreshToken(refreshToken).build();
+		return AuthenticationResponse.builder().accessToken(jwtToken).refreshToken(refreshToken)
+				.secretImageUri(twoFactorAuthService.generateQrCodeImageURI(user.getSecret()))
+				.mfaEnabled(user.isMfaEnabled())
+				.build();
 	}
+	
+	/** Authentication scope */
 
 	public AuthenticationResponse authenticate(AuthenticationRequest request) {
 
@@ -62,12 +83,20 @@ public class AuthenticationService {
 				.authenticate(new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
 
 		var user = repository.findByEmail(request.getEmail()).orElseThrow();
+		
+		if(user.isMfaEnabled()) {
+			return AuthenticationResponse.builder().accessToken("").refreshToken("")
+					.mfaEnabled(true)
+					.build();
+		}
 
 		var jwtToken = jwtService.generateToken(user);
 		var refreshToken = jwtService.generateRefreshToken(user);
 		revokeAllUserTokens(user);
 		saveUserToken(user, jwtToken);
-		return AuthenticationResponse.builder().accessToken(jwtToken).refreshToken(refreshToken).build();
+		return AuthenticationResponse.builder().accessToken(jwtToken).refreshToken(refreshToken)
+				.mfaEnabled(false)
+				.build();
 
 	}
 
@@ -125,6 +154,7 @@ public class AuthenticationService {
 						.builder()
 						.accessToken(accessToken)
 						.refreshToken(refreshToken)
+						.mfaEnabled(false)
 						.build();
 				
 				new ObjectMapper().writeValue(response.getOutputStream(), authResponse);
@@ -133,6 +163,23 @@ public class AuthenticationService {
 
 		}
 
+	}
+
+	public AuthenticationResponse verifyCode(VerificationRequest verificationRequest) {
+		
+		User user = repository.findByEmail(verificationRequest.getEmail())
+				.orElseThrow(()-> new EntityNotFoundException(String.format("No user found %S", verificationRequest.getEmail())));
+		
+		if(twoFactorAuthService.isOTPNotValid(user.getSecret(), verificationRequest.getCode())) {
+			throw new BadCredentialsException("Code is not correct");
+		}
+		
+		var jwtToken = jwtService.generateToken(user);
+		
+		return AuthenticationResponse.builder()
+				.accessToken(jwtToken)
+				.mfaEnabled(user.isMfaEnabled())	
+				.build();
 	}
 
 }
