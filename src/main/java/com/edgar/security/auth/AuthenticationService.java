@@ -23,7 +23,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import lombok.RequiredArgsConstructor;
 
 @Service
 public class AuthenticationService {
@@ -165,21 +164,28 @@ public class AuthenticationService {
 
 	}
 
-	public AuthenticationResponse verifyCode(VerificationRequest verificationRequest) {
+	public AuthenticationResponse verifyCode(
+            VerificationRequest verificationRequest
+    ) {
 		
-		User user = repository.findByEmail(verificationRequest.getEmail())
-				.orElseThrow(()-> new EntityNotFoundException(String.format("No user found %S", verificationRequest.getEmail())));
 		
-		if(twoFactorAuthService.isOTPNotValid(user.getSecret(), verificationRequest.getCode())) {
-			throw new BadCredentialsException("Code is not correct");
-		}
 		
-		var jwtToken = jwtService.generateToken(user);
-		
-		return AuthenticationResponse.builder()
-				.accessToken(jwtToken)
-				.mfaEnabled(user.isMfaEnabled())	
-				.build();
-	}
+        User user = repository
+                .findByEmail(verificationRequest.getEmail())
+                .orElseThrow(() -> new EntityNotFoundException(
+                        String.format("No user found with %S", verificationRequest.getEmail()))
+                );
+        
+      
+        if (twoFactorAuthService.isOTPNotValid(user.getSecret(), verificationRequest.getCode())) {
+
+            throw new BadCredentialsException("Code is not correct");
+        }
+        var jwtToken = jwtService.generateToken(user);
+        return AuthenticationResponse.builder()
+                .accessToken(jwtToken)
+                .mfaEnabled(user.isMfaEnabled())
+                .build();
+    }
 
 }
